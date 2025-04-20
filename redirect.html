@@ -3,51 +3,84 @@
 <head>
   <title>Redirecting...</title>
   <meta charset="utf-8">
+</head>
+<body>
+  <p id="message">Redirecting to your app...</p>
+
   <script>
-    // Function to parse URL hash or query parameters
-    function getParams() {
-      const params = {};
-      // Handle both hash and query parameters (Supabase uses hash by default for email links)
-      const parts = window.location.hash.substring(1).split('&').concat(window.location.search.substring(1).split('&'));
+    // Wait for the HTML document to be fully loaded and parsed
+    document.addEventListener('DOMContentLoaded', () => {
 
-      parts.forEach(part => {
-        const [key, value] = part.split('=');
-        if (key && value) {
-          params[decodeURIComponent(key)] = decodeURIComponent(value);
+      // Function to parse URL hash or query parameters
+      function getParams() {
+        const params = {};
+        // Handle both hash and query parameters (Supabase uses hash by default for email links)
+        // Use location.hash and location.search directly from the window object
+        const parts = (window.location.hash.substring(1) || '').split('&').concat((window.location.search.substring(1) || '').split('&'));
+
+        parts.forEach(part => {
+          const [key, value] = part.split('=');
+          if (key && value !== undefined) { // Ensure value is not undefined
+            try {
+              params[decodeURIComponent(key)] = decodeURIComponent(value);
+            } catch (e) {
+              console.error("Failed to decode URI component:", e, { key, value });
+              params[key] = value; // Use raw value if decoding fails
+            }
+          } else if (key) {
+             params[decodeURIComponent(key)] = ''; // Handle keys with no value
+          }
+        });
+        return params;
+      }
+
+      const params = getParams();
+
+      // Construct the deep link URL
+      // Make sure 'hopento' matches your scheme in app.json
+      // Make sure '/auth/callback' matches the path configured in your React Navigation linking config
+      const deepLinkBase = 'hopento://auth/callback'; // <--- **UPDATE THIS WITH YOUR SCHEME**
+      const deepLinkParams = new URLSearchParams();
+
+      // Pass *all* received parameters to the deep link
+      for (const key in params) {
+        if (params.hasOwnProperty(key)) { // Good practice
+           deepLinkParams.append(key, params[key]);
         }
-      });
-      return params;
-    }
+      }
 
-    const params = getParams();
+      const queryString = deepLinkParams.toString();
+      const deepLinkUrl = `${deepLinkBase}${queryString ? '?' + queryString : ''}`;
 
-    // Construct the deep link URL
-    // Make sure 'hopento' matches your scheme in app.json
-    // Make sure '/auth/callback' matches the path configured in your React Navigation linking
-    const deepLinkBase = 'hopento://auth/callback'; // <--- **UPDATE THIS WITH YOUR SCHEME**
-    const deepLinkParams = new URLSearchParams();
 
-    // Pass *all* received parameters to the deep link
-    for (const key in params) {
-      deepLinkParams.append(key, params[key]);
-    }
+      console.log("Attempting to redirect to:", deepLinkUrl);
 
-    const deepLinkUrl = `${deepLinkBase}?${deepLinkParams.toString()}`;
+      // Attempt to redirect using the deep link
+      // Use window.location.replace so the user can't go back to this redirect page
+      window.location.replace(deepLinkUrl);
 
-    console.log("Attempting to redirect to:", deepLinkUrl);
+      // Optional: Add a fallback message if the redirect doesn't happen quickly
+      // Now that we're inside DOMContentLoaded, getElementById should work
+      const messageElement = document.getElementById('message');
+      if (messageElement) { // Check if element was found
+           setTimeout(() => {
+             messageElement.innerText = "If you are not redirected, please open the app manually.";
+             // Optional: Add a button if message is shown
+             // const openAppButton = document.createElement('button');
+             // openAppButton.innerText = 'Open App';
+             // openAppButton.onclick = () => window.location.replace(deepLinkUrl);
+             // messageElement.parentNode.insertBefore(openAppButton, messageElement.nextSibling);
 
-    // Attempt to redirect using the deep link
-    // Use window.location.replace so the user can't go back to this redirect page
-    window.location.replace(deepLinkUrl);
+           }, 2000); // Show message after 2 seconds if redirect hasn't happened
+      } else {
+          console.error("Message element not found!");
+      }
 
-    // Optional: Add a fallback for browsers that don't support the deep link (less common now)
-    // Or display a message if the redirect doesn't happen quickly
-    setTimeout(() => {
-      document.getElementById('message').innerText = "If you are not redirected, please open the app manually.";
-    }, 2000); // Show message after 2 seconds if redirect hasn't happened
+    }); // End of DOMContentLoaded listener
 
   </script>
-</head>
+</body>
+</html>
 <body>
   <p id="message">Redirecting to your app...</p>
   <!-- You might want a button here to manually open the app -->
